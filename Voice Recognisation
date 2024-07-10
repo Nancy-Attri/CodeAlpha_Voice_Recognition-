@@ -1,0 +1,145 @@
+!pip install SpeechRecognition pyttsx3 pyaudio requests nltk
+
+# Importing necessary libraries
+import speech_recognition as sr
+import pyttsx3
+import datetime
+import webbrowser
+import requests
+import os
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
+# Download NLTK data if not already downloaded
+print("Downloading NLTK data...")
+nltk.download('punkt')
+nltk.download('stopwords')
+
+# Initialize recognizer and TTS engine
+recognizer = sr.Recognizer()
+tts_engine = pyttsx3.init()
+
+# Function to speak text
+def speak(text):
+    print(f"Speaking: {text}")
+    tts_engine.say(text)
+    tts_engine.runAndWait()
+
+# Function to listen and recognize speech
+def listen():
+    with sr.Microphone() as source:
+        print("Listening...")
+        recognizer.adjust_for_ambient_noise(source, duration=1)  # Adjust for ambient noise
+        try:
+            audio = recognizer.listen(source, timeout=10, phrase_time_limit=10)  # Set time limits
+            print("Processing audio...")
+            command = recognizer.recognize_google(audio)
+            print(f"You said: {command}")
+            return command.lower()
+        except sr.WaitTimeoutError:
+            speak("Listening timed out. Please try again.")
+            print("Error: Listening timed out.")
+            return None
+        except sr.UnknownValueError:
+            speak("Sorry, I did not understand that.")
+            print("Error: Could not understand audio.")
+            return None
+        except sr.RequestError:
+            speak("Sorry, my speech service is down.")
+            print("Error: Speech service is unavailable.")
+            return None
+
+# Function to get the current time
+def get_time():
+    now = datetime.datetime.now()
+    current_time = now.strftime("%H:%M")
+    print(f"Current time is {current_time}")
+    return current_time
+
+# Function to open a website
+def open_website(url):
+    print(f"Opening website: {url}")
+    webbrowser.open(url)
+
+# Function to get weather information
+def get_weather(city):
+    api_key = "6064b7158c05b663ec08d2bced4c3e5e"  # Replace with your actual API key
+    url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+    response = requests.get(url)
+    weather_data = response.json()
+    if weather_data.get("main"):
+        temp = weather_data["main"]["temp"]
+        description = weather_data["weather"][0]["description"]
+        weather_info = f"The temperature in {city} is {temp}°C with {description}."
+        print(weather_info)
+        return weather_info
+    else:
+        error_msg = "City not found."
+        print(error_msg)
+        return error_msg
+
+# Function to play music
+def play_music(song_name):
+    print(f"Playing music: {song_name}")
+    os.system(f"start spotify:search:{song_name}")
+
+# Function to preprocess command using NLP
+def preprocess_command(command):
+    stop_words = set(stopwords.words('english'))
+    word_tokens = word_tokenize(command)
+    filtered_command = [word for word in word_tokens if word not in stop_words]
+    print(f"Filtered command: {filtered_command}")
+    return filtered_command
+
+# Function to process voice commands
+def process_command(command):
+    filtered_command = preprocess_command(command)
+    if 'time' in filtered_command:
+        time = get_time()
+        speak(f"The time is {time}")
+    elif 'open' in filtered_command and 'website' in filtered_command:
+        speak("Which website would you like to open?")
+        print("Waiting for website name...")
+        website = listen()
+        if website:
+            open_website(f"http://{website}")
+            speak(f"Opening {website}")
+    elif 'weather' in filtered_command:
+        speak("Which city?")
+        print("Waiting for city name...")
+        city = listen()
+        if city:
+            weather = get_weather(city)
+            speak(weather)
+    elif 'play' in filtered_command and 'music' in filtered_command:
+        speak("Which song?")
+        print("Waiting for song name...")
+        song = listen()
+        if song:
+            play_music(song)
+            speak(f"Playing {song}")
+    elif 'commands' in filtered_command or 'help' in filtered_command:
+        help_text = "Here are some commands you can use: Time, Weather, Open website, Play music. Say 'exit' or 'stop' to end."
+        speak(help_text)
+        print(help_text)
+    elif 'hello' in filtered_command or 'hi' in filtered_command:
+        greeting = "Hello! How can I assist you today? You can say 'commands' to hear what I can do."
+        speak(greeting)
+        print(greeting)
+    else:
+        unknown_command = "Sorry, I don't know that command. You can say 'commands' to hear what I can do."
+        speak(unknown_command)
+        print(unknown_command)
+
+# Main loop to run the assistant
+if __name__ == "__main__":
+    speak("How can I assist you?")
+    while True:
+        command = listen()
+        if command:
+            process_command(command)
+        if command and ('exit' in command or 'stop' in command):
+            speak("Goodbye!")
+            print("Exiting...")
+            break
